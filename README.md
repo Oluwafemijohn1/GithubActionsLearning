@@ -343,7 +343,7 @@ Create a new workflow file named play_store_workflow.yml in the .github/workflow
 name: Deploy to Play Store
 
 on:
-  pull_request:
+  push:
     branches:
       - master
 jobs:
