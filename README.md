@@ -17,7 +17,7 @@ This is a sample application to test continuous delivery.
   ```bash
       ./gradlew connectedDebugAndroidTest
    ```
-
+## 04. Generate a Signed Build
 - Add the following code inside check_and_deploy.yml:
 
 ```yaml
@@ -124,3 +124,44 @@ In this code, the build job performs multiple steps:
 5. Uploads the mapping file as an artifact. You’ll use this in a later step when you upload to the Play Store.
 
 Commit the file to your project and push it to GitHub.
+
+## 05 Trigger a Workflow
+- You want to release a build in the following scenarios:
+
+1. You push a version tag to the repository.
+2. You create a pull request targeting the master branch.
+   
+Conditions to trigger a workflow are added under the on attribute.
+
+
+```yaml
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches:
+      - main
+```
+
+- To create a tag, run the following command in the Terminal:
+```bash
+git tag -a v0.1 -a -m "Release v0.1"
+```
+Push the tag to GitHub:
+```bash
+ git push --follow-tags   
+```
+Or 
+```bash
+git push origin master --follow-tags
+```
+Check the Actions tab on GitHub. You should see a new workflow run.
+
+- To check that an empty commit can not trigger a workflow, run the following command in the Terminal:
+```bash
+git commit --allow-empty -m "Empty commit"
+```
+Push the commit to GitHub and check the Actions tab. You should not see a new workflow run.
+
+
