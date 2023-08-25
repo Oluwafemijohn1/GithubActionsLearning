@@ -53,7 +53,7 @@ jobs:
         with:
           releaseDir: app/build/outputs/apk/release
           signingKey: ${{ secrets.SIGNING_KEY }}
-          keykeyAlias: ${{ secrets.ALIAS }}
+          keyAlias: ${{ secrets.ALIAS }}
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
           buildToolsVersion: 33.0.0
