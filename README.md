@@ -164,4 +164,107 @@ git commit --allow-empty -m "Empty commit"
 ```
 Push the commit to GitHub and check the Actions tab. You should not see a new workflow run.
 
+[//]: # (## 06. Authenticate Firebase Project)
+<details>
+<summary>06. Authenticate Firebase Project</summary>
+<br>
+Once the unit and instrumentation tests pass, you want to send the build to your QA team. A structured way of doing this is to use Firebase App Distribution. It lets you keep track of the uploaded builds and notify teams when new builds become available. You can even create groups and distribute a build only to specific groups.
 
+First, you need to create a new project on Firebase. Open your web browser and go to the following URL: https://console.firebase.google.com/
+
+Click Create a project.
+
+Next, choose a project name. For this tutorial, name your project Quotes, then click Continue.
+
+You don’t need Google Analytics for this project, so disable it. Click Create project.
+
+Once the project is ready, click Continue.
+
+Next, you need to add an Android app to the project. To do this, click the Android icon.
+
+You’ll get a short form asking for the package name. The package name of the app is com.yourcompany.android.quotes.
+
+Enter the package name and click Register app.
+
+Because you’re only using App Distribution, skip the next two sections of the form by clicking Next.
+
+Finally, click Continue to console to return to the home dashboard.
+
+From the left navigation bar, select App Distribution in the Release & Monitor section.
+
+Accept the terms and conditions and click Get started.
+
+You’ll see the App Distribution dashboard, which contains three tabs: Releases, Invite links and Testers and Groups.
+
+Go to the Testers and Groups tab.
+
+In the Add testers input field, enter your email address. Firebase will then send you an invitation to become a tester for the app. Similarly, add the email addresses of the rest of your development and QA teams.
+
+Next, you’ll create a group. A group is a collection of testers you want to send a specific build to. To create a group, click Add group and enter a name for your group — in this case, QA. Click Save
+
+Now, you can choose the email addresses of all members of your QA team and add them here.
+
+To give GitHub Actions access to your Firebase account, you’ll need two things:
+
+1. App ID: An ID specific to your project.
+2. Service Account: An authentication mechanism to access Firebase.
+Click the gear icon at the top of the left navigation bar.
+
+Select Project Settings from the menu.
+
+Scroll down until you see the package name of the app.
+
+Next to it, you’ll see a section named App ID with a long alphanumeric string. Copy this string and add it as a Secret on the GitHub repository named FIREBASE_APP_ID.
+
+Switch back to the Firebase Project Settings page.
+
+Select the Service accounts tab. Click Create service account and wait for it to be created.
+
+Once done, click Generate new private key. A popup appears informing you to keep the private key safe.
+
+Click Generate key and a JSON file will be downloaded to your computer. Open this file in any text editor of your choice.
+
+Copy the contents of the file and store it as a Github token named SERVICE_ACCOUNT.
+
+Switch back to the Firebase page.
+
+Click on the link in the All service accounts section.
+
+Here, you can view the service account that Firebase created for you. On the first account, click on the 3-dot menu and select Manage permissions.
+
+And that’s it. You have complete the authentication needed to upload builds from GitHub Actions.
+</details>
+
+## 07. Deploy to Firebase App Distribution
+- Add the following job to the workflow:
+
+```yaml
+ deploy-firebase:
+    needs: [ build ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: release.apk
+      - name: unzip downloaded APK
+        run: unzip app-release-unsigned-signed.apk
+      - name: upload artifact to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{secrets.FIREBASE_APP_ID}}
+          serviceCredentialsFileContent: ${{secrets.SERVICE_ACCOUNT}}
+          groups: QA
+          file: app-release-unsigned-signed.apk
+```
+This code uses:
+
+1. needs to specify that the job can only run if the build job has been completed successfully.
+2. The actions/download-artifact action to download the artifact of the release APK. It uploads the downloaded artifact to Firebase App Distribution and makes it available to the QA group you created earlier. It also uses the two secrets named FIREBASE_APP_ID and SERVICE_ACCOUNT, which you added in the previous section.
+
+Commit and push the changes to GitHub.
+Next, create a new tag and push it.
+    
+```bash
+git tag v0.2 -a -m "Release v0.2"
+git push origin master --follow-tags
+```
