@@ -1,0 +1,58 @@
+name: Deploy to Play Store
+
+on:
+  push:
+    branches:
+      - master
+jobs:
+  build:
+    runs-on: [ubuntu-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: 11
+      - name: Generate Release AAB
+        run: ./gradlew bundleRelease
+      - name: Sign AAB
+        uses: ilharp/sign-android-release@v1
+        # ID used to access action output
+        id: sign_app
+        with:
+          releaseDir: app/build/outputs/bundle/release
+          signingKey: ${{ secrets.SIGNING_KEY }}
+          keyAlias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+          buildToolsVersion: 33.0.0
+      - uses: actions/upload-artifact@v3
+        with:
+          name: release.aab
+          path:  ${{steps.sign_app.outputs.signedFile}}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: mapping.txt
+          path: app/build/outputs/mapping/release/mapping.txt
+
+  deploy-play-store:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: release.aab
+      - uses: actions/download-artifact@v3
+        with:
+          name: mapping.txt
+      - name: Publish to Play Store internal test track
+        uses: r0adkll/upload-google-play@v1.1.1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.yourcompany.android.quotes
+          releaseFiles: app-release-signed.aab
+          track: internal
+          changesNotSentForReview: true
+          mappingFile: mapping.txt

@@ -164,9 +164,9 @@ git commit --allow-empty -m "Empty commit"
 ```
 Push the commit to GitHub and check the Actions tab. You should not see a new workflow run.
 
-[//]: # (## 06. Authenticate Firebase Project)
+## 06. Authenticate Firebase Project
 <details>
-<summary>06. Authenticate Firebase Project</summary>
+<summary>06. Authenticate Firebase Project steps</summary>
 <br>
 Once the unit and instrumentation tests pass, you want to send the build to your QA team. A structured way of doing this is to use Firebase App Distribution. It lets you keep track of the uploaded builds and notify teams when new builds become available. You can even create groups and distribute a build only to specific groups.
 
@@ -267,4 +267,135 @@ Next, create a new tag and push it.
 ```bash
 git tag v0.2 -a -m "Release v0.2"
 git push origin master --follow-tags
+```
+
+## 08. Authenticate with Google Play Console
+<details>
+<summary>Authenticate with Google Play Console steps</summary>
+<br>
+The action needed to deploy a build to the Play Store is similar to the one you used for app distribution but the setup is a bit more complex. It requires you to use a service account. Don’t worry if you haven’t heard of the term, you’ll create one shortly.
+
+This video assumes that you have a Google Play account listing set up for your app.
+
+Open your web browser and head to https://play.google.com/console. Go to Setup ▸ API access. Once there, click the Create a new Google Cloud project radio button and select Save Project in the bottom right corner of the page.
+
+Once the Google Cloud project has been created, click View in Google Cloud Platform.
+
+On the Google Cloud Console page, click the hamburger menu on the top-left and select APIs & Services ▸ Library.
+
+Search for the Google Play Android Developer API. On the API details page, ensure the that API is enabled. In this case, the API is already enabled.
+
+Next, open the hamburger menu again and select IAM & Admin. Select Service Accounts from the left menu.
+
+Click Learn how to create service account.
+
+On the Service accounts page, click CREATE SERVICE ACCOUNT .
+
+Enter a name for the account and click CREATE AND CONTINUE.
+
+Provide the account with the Editor and click CONTNUE.
+
+Finally, click DONE to return to the Service Accounts page.
+
+Click the three-dot menu next to the service account you just created.
+
+Select Manage Keys to open the KEYS tab.
+
+Click ADD KEY and select Create new key.
+
+Select JSON and click CREATE.
+
+This step will generate the key and then download it to your computer.
+
+Go back to the Play Console tab on your browser and click Refresh on the pop-up.
+
+The Service accounts section will refresh and the account you just created will appear.
+
+You need to grant access to the service account to manage releases.
+
+Click Manage Google Play permissions. This will open the Account permissions tab.
+
+In the Releases section, select Release to production, exclude devices, and use Play App Signing and Release apps to testing tracks.
+
+Finally, click Invite User.
+
+On the confirmation popup, click Send invite.
+
+On the next page, click Manage. This will open the the App permissions tab.
+
+Click on Add app and choose your app. Click Apply.
+
+Click Apply.
+
+Finally, click Save changes. Click Yes.
+
+Open the service account key file you downloaded and add its contents as a GitHub Secret named PLAY_SERVICE_ACCOUNT_JSON.
+
+The service is now ready and you can automate Play Store uploads.
+</details>
+
+## 09. Deploy to Google Play Store
+Create a new workflow file named play_store_workflow.yml in the .github/workflows directory.
+
+- Add the following job to the workflow:
+
+```yaml
+name: Deploy to Play Store
+
+on:
+  push:
+    branches:
+      - master
+jobs:
+  build:
+    runs-on: [ubuntu-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: 11
+      - name: Generate Release AAB
+        run: ./gradlew bundleRelease
+      - name: Sign AAB
+        uses: ilharp/sign-android-release@v1
+        # ID used to access action output
+        id: sign_app
+        with:
+          releaseDir: app/build/outputs/bundle/release
+          signingKey: ${{ secrets.SIGNING_KEY }}
+          keyAlias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+          buildToolsVersion: 33.0.0
+      - uses: actions/upload-artifact@v3
+        with:
+          name: release.aab
+          path:  ${{steps.sign_app.outputs.signedFile}}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: mapping.txt
+          path: app/build/outputs/mapping/release/mapping.txt
+
+  deploy-play-store:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: release.aab
+      - uses: actions/download-artifact@v3
+        with:
+          name: mapping.txt
+      - name: Publish to Play Store internal test track
+        uses: r0adkll/upload-google-play@v1.1.1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.yourcompany.android.quotes
+          releaseFiles: app-release-signed.aab
+          track: internal
+          changesNotSentForReview: true
+          mappingFile: mapping.txt
 ```
